@@ -1,14 +1,11 @@
 import NextAuth from 'next-auth'
-import { PrismaAdapter } from '@auth/prisma-adapter'
 import Google from 'next-auth/providers/google'
 import Discord from 'next-auth/providers/discord'
 import Credentials from 'next-auth/providers/credentials'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
-import { AccountType } from '@prisma/client'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma),
   session: { strategy: 'jwt' },
   pages: {
     signIn: '/login',
@@ -55,37 +52,49 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id
-        token.accountType = (user as any).accountType
+        token.accountType = (user as any).accountType ?? 'PLAYER'
       }
+
+      // Handle OAuth sign in — create user in DB if first time
+      if (account && account.provider !== 'credentials' && user?.email) {
+        const existing = await prisma.user.findUnique({
+          where: { email: user.email },
+        })
+
+        if (!existing) {
+          const username = user.email.split('@')[0].replace(/[^a-zA-Z0-9_]/g, '') + Math.floor(Math.random() * 1000)
+          const newUser = await prisma.user.create({
+            data: {
+              email: user.email,
+              username,
+              accountType: 'PLAYER',
+              avatar: user.image ?? null,
+            },
+          })
+          await prisma.wallet.create({ data: { userId: newUser.id } })
+          await prisma.subscription.create({ data: { userId: newUser.id } })
+          await prisma.playerProfile.create({
+            data: { userId: newUser.id, ign: username },
+          })
+          token.id = newUser.id
+          token.accountType = 'PLAYER'
+        } else {
+          token.id = existing.id
+          token.accountType = existing.accountType
+        }
+      }
+
       return token
     },
     async session({ session, token }) {
       if (token) {
         session.user.id = token.id as string
-        session.user.accountType = token.accountType as AccountType
+        session.user.accountType = token.accountType as any
       }
       return session
-    },
-    async signIn({ user, account }) {
-      // For OAuth providers, create profile on first sign in
-      if (account?.provider !== 'credentials' && user.email) {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-          include: { playerProfile: true },
-        })
-        if (existingUser && !existingUser.playerProfile) {
-          await prisma.playerProfile.create({
-            data: {
-              userId: existingUser.id,
-              ign: existingUser.username,
-            },
-          })
-        }
-      }
-      return true
     },
   },
 })
