@@ -182,7 +182,7 @@ export default function TournamentDetailPage() {
 
             <button
               onClick={() => navigator.share?.({ title: t.title, url: window.location.href }) || navigator.clipboard?.writeText(window.location.href)}
-              style={{ padding: '12px 20px', background: 'transparent', border: `1px solid ${color}33`, borderRadius: '10px', color, fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif' }}>
+              style={{ padding: '12px 20px', background: 'transparent', border: `1px solid ${color}33`, borderRadius: '10px', color, fontWeight: 700, fontSize: '13px', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
               🔗 Share
             </button>
           </div>
