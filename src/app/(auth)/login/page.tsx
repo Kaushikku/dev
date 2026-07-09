@@ -41,7 +41,8 @@ export default function AuthPage() {
     })
     setLoading(false)
     if (res?.error) return setError('Invalid email or password')
-    router.push('/dashboard')
+    const session = await fetch('/api/auth/session').then(r => r.json())
+    router.push(`/profile/${session?.user?.name}`)
   }
 
   async function handleSignup(e: React.FormEvent) {
@@ -68,7 +69,8 @@ export default function AuthPage() {
       password: signupForm.password,
       redirect: false,
     })
-    router.push('/dashboard')
+    const session = await fetch('/api/auth/session').then(r => r.json())
+    router.push(`/profile/${session?.user?.name}`)
   }
 
   return (
